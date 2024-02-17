@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import "package:commitchecker/screens/commit_heatmap.dart";
 
 class InputPage extends StatefulWidget {

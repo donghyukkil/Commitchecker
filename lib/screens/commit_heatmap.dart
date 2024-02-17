@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+
 import 'package:table_calendar/table_calendar.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
+
+import "package:commitchecker/screens/web_view_page.dart";
+import 'package:commitchecker/models/commit_info.dart';
 
 class CommitHeatmap extends StatefulWidget {
   final String username;
@@ -13,10 +17,10 @@ class CommitHeatmap extends StatefulWidget {
 }
 
 class _CommitHeatmapState extends State<CommitHeatmap> {
-  Map<DateTime, List<String>> commitData = {};
+  Map<DateTime, List<CommitInfo>> commitData = {};
   DateTime focusedDay = DateTime.now();
   DateTime? selectedDay;
-  List<String>? selectedCommits;
+  List<CommitInfo>? selectedCommits;
   bool isLoading = false;
   List<String> repositories = [];
   String? selectedRepository;
@@ -85,14 +89,18 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
 
       if (response.statusCode == 200) {
         List<dynamic> commits = json.decode(response.body);
-        Map<DateTime, List<String>> newCommitData = {};
+        Map<DateTime, List<CommitInfo>> newCommitData = {};
 
         for (var commit in commits) {
           DateTime date =
               DateTime.parse(commit["commit"]["author"]["date"]).toUtc();
           DateTime dateKey = DateTime.utc(date.year, date.month, date.day);
+
+          String commitMessage = commit["commit"]["message"];
+          String htmlUrl = commit["html_url"];
+
           newCommitData[dateKey] = (newCommitData[dateKey] ?? [])
-            ..add(commit["commit"]["message"]);
+            ..add(CommitInfo(message: commitMessage, htmlUrl: htmlUrl));
         }
 
         setState(() {
@@ -125,7 +133,9 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
   }
 
   String formatDate(DateTime? date) {
-    if (date == null) return 'No Date Selected';
+    if (date == null) {
+      return 'No Date Selected';
+    }
 
     return DateFormat('yyyy-MM-dd EEEE').format(date);
   }
@@ -232,9 +242,22 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
               radius: const Radius.circular(5.0),
               child: ListView.builder(
                 itemCount: selectedCommits?.length ?? 0,
-                itemBuilder: (context, index) => ListTile(
-                  title: Text(selectedCommits![index]),
-                ),
+                itemBuilder: (context, index) {
+                  final commitInfo = selectedCommits![index];
+
+                  return ListTile(
+                    title: Text(commitInfo.message),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              WebViewPage(url: commitInfo.htmlUrl),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ),
