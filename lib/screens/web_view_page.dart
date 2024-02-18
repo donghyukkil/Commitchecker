@@ -29,10 +29,24 @@ class _WebViewPageState extends State<WebViewPage> {
   Widget build(BuildContext context) {
     final Size size = MediaQuery.of(context).size;
 
-    return SizedBox(
-      width: size.width,
-      height: size.height,
-      child: WebViewWidget(controller: controller),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          "Commit Checker",
+          style: TextStyle(
+            fontSize: 23,
+          ),
+        ),
+        backgroundColor: Colors.green,
+      ),
+      body: SizedBox(
+          width: size.width,
+          height: size.height,
+          child: SizedBox(
+            width: size.width,
+            height: size.height,
+            child: WebViewWidget(controller: controller),
+          )),
     );
   }
 }

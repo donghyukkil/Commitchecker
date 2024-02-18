@@ -144,124 +144,185 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Commit Heatmap"),
-      ),
-      body: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    focusedDay = DateTime.now();
-                  });
-                  fetchCommitsForMonth(focusedDay);
-                },
-                child: const Text('Today'),
-              ),
-              const SizedBox(width: 20),
-              DropdownButton<String>(
-                value: selectedRepository,
-                onChanged: (String? newValue) {
-                  setState(() {
-                    selectedRepository = newValue;
-                  });
-                  fetchCommitsForMonth(focusedDay);
-                },
-                items:
-                    repositories.map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value),
-                  );
-                }).toList(),
-              ),
-            ],
+        title: const Text(
+          "Commit Heatmap",
+          style: TextStyle(
+            fontSize: 23,
           ),
-          Expanded(
-            flex: 4,
-            child: TableCalendar(
-              focusedDay: focusedDay,
-              firstDay: DateTime.utc(2020, 1, 1),
-              lastDay: DateTime.utc(2025, 12, 31),
-              eventLoader: (day) => commitData[day] ?? [],
-              onPageChanged: (focusedDay) {
-                this.focusedDay = focusedDay;
-                fetchCommitsForMonth(focusedDay);
-              },
-              availableCalendarFormats: const {
-                CalendarFormat.month: 'Month',
-              },
-              calendarBuilders: CalendarBuilders(
-                markerBuilder: (context, date, events) {
-                  if (events.isNotEmpty) {
-                    return Positioned(
-                      right: 27,
-                      bottom: 1,
+        ),
+        backgroundColor: Colors.green,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      focusedDay = DateTime.now();
+                    });
+                    fetchCommitsForMonth(focusedDay);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.green,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30.0),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 15.0),
+                  ),
+                  child: const Text(
+                    'Today',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+                const SizedBox(width: 60),
+                DropdownButton<String>(
+                  value: selectedRepository,
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      selectedRepository = newValue;
+                    });
+                    fetchCommitsForMonth(focusedDay);
+                  },
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                  ),
+                  underline: Container(
+                    height: 2,
+                    color: Colors.green,
+                  ),
+                  icon: const Icon(
+                    Icons.arrow_drop_down,
+                    color: Colors.green,
+                  ),
+                  items: repositories.map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
                       child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: events.length > 5
-                              ? Colors.red
-                              : (events.length > 2
-                                  ? Colors.orange
-                                  : Colors.green),
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text(
+                          value,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.black,
+                          ),
                         ),
-                        width: 8.0,
-                        height: 8.0,
                       ),
                     );
-                  }
-
-                  return null;
+                  }).toList(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 15),
+            Expanded(
+              flex: 4,
+              child: TableCalendar(
+                focusedDay: focusedDay,
+                firstDay: DateTime.utc(2020, 1, 1),
+                lastDay: DateTime.utc(2025, 12, 31),
+                eventLoader: (day) => commitData[day] ?? [],
+                onPageChanged: (focusedDay) {
+                  this.focusedDay = focusedDay;
+                  fetchCommitsForMonth(focusedDay);
                 },
-              ),
-              onDaySelected: (selectedDay, focusedDay) {
-                setState(() {
-                  this.selectedDay = selectedDay;
-                  selectedCommits = commitData[selectedDay] ?? [];
-                });
-              },
-            ),
-          ),
-          if (selectedCommits != null && selectedDay != null)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                formatDate(selectedDay),
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-          Expanded(
-            flex: 3,
-            child: Scrollbar(
-              thumbVisibility: true, //
-              thickness: 4.0,
-              radius: const Radius.circular(5.0),
-              child: ListView.builder(
-                itemCount: selectedCommits?.length ?? 0,
-                itemBuilder: (context, index) {
-                  final commitInfo = selectedCommits![index];
-
-                  return ListTile(
-                    title: Text(commitInfo.message),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              WebViewPage(url: commitInfo.htmlUrl),
+                availableCalendarFormats: const {
+                  CalendarFormat.month: 'Month',
+                },
+                calendarBuilders: CalendarBuilders(
+                  markerBuilder: (context, date, events) {
+                    if (events.isNotEmpty) {
+                      return Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: events.length > 5
+                                ? Colors.red
+                                : (events.length > 2
+                                    ? Colors.orange
+                                    : Colors.green),
+                          ),
+                          width: 8.0,
+                          height: 8.0,
                         ),
                       );
-                    },
-                  );
+                    }
+
+                    return null;
+                  },
+                ),
+                headerStyle: const HeaderStyle(
+                  titleCentered: true,
+                ),
+                onDaySelected: (selectedDay, focusedDay) {
+                  setState(() {
+                    this.selectedDay = selectedDay;
+                    selectedCommits = commitData[selectedDay] ?? [];
+                  });
                 },
               ),
             ),
-          ),
-        ],
+            if (selectedCommits != null && selectedDay != null)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    formatDate(selectedDay),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            Expanded(
+              flex: 2,
+              child: Scrollbar(
+                thumbVisibility: true,
+                thickness: 4.0,
+                radius: const Radius.circular(5.0),
+                child: ListView.builder(
+                  itemCount: selectedCommits?.length ?? 0,
+                  itemBuilder: (context, index) {
+                    final commitInfo = selectedCommits![index];
+
+                    return MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        margin: const EdgeInsets.symmetric(vertical: 2),
+                        child: ListTile(
+                          title: Text(commitInfo.message,
+                              style: const TextStyle(fontSize: 13)),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    WebViewPage(url: commitInfo.htmlUrl),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
