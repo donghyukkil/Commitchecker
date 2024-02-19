@@ -13,10 +13,12 @@ class WebViewPage extends StatefulWidget {
 
 class _WebViewPageState extends State<WebViewPage> {
   late WebViewController controller;
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
+
     final url = widget.url;
 
     controller = WebViewController()
@@ -30,23 +32,19 @@ class _WebViewPageState extends State<WebViewPage> {
     final Size size = MediaQuery.of(context).size;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          "Commit Checker",
-          style: TextStyle(
-            fontSize: 23,
+        appBar: AppBar(
+          title: const Text(
+            'Commit Checker',
+            style: TextStyle(
+              fontSize: 23,
+            ),
           ),
+          backgroundColor: Colors.green,
         ),
-        backgroundColor: Colors.green,
-      ),
-      body: SizedBox(
+        body: SizedBox(
           width: size.width,
           height: size.height,
-          child: SizedBox(
-            width: size.width,
-            height: size.height,
-            child: WebViewWidget(controller: controller),
-          )),
-    );
+          child: WebViewWidget(controller: controller),
+        ));
   }
 }

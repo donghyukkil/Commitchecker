@@ -9,6 +9,9 @@ import 'package:commitchecker/models/commit_info.dart';
 import 'package:commitchecker/components/commit_list.dart';
 import 'package:commitchecker/components/repository_dropdown_button.dart';
 
+import 'package:commitchecker/services/github_api.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class CommitHeatmap extends StatefulWidget {
   final String username;
   const CommitHeatmap({Key? key, required this.username}) : super(key: key);
@@ -29,6 +32,7 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
   @override
   void initState() {
     super.initState();
+
     fetchRepositories(widget.username);
   }
 
@@ -49,29 +53,13 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
     } catch (e) {
       setState(() => isLoading = false);
 
-      showErrorDialog("Failed to load repositories: $e");
-    }
-  }
-
-  Future<List<String>> fetchRepositoriesFromAPI(String username) async {
-    final String url = 'https://api.github.com/users/$username/repos';
-    final response = await http.get(Uri.parse(url));
-
-    if (response.statusCode == 200) {
-      final List<dynamic> reposJson = json.decode(response.body);
-
-      return reposJson
-          .map(
-            (repo) => repo['name'].toString(),
-          )
-          .toList();
-    } else {
-      throw Exception('Failed to load repositories');
+      showErrorDialog('Failed to load repositories: $e');
     }
   }
 
   void fetchCommitsForMonth(DateTime targetDate) async {
     setState(() => isLoading = true);
+
     String? repository = selectedRepository;
 
     if (repository == null) {
@@ -85,11 +73,16 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
     String since = startOfMonth.toIso8601String();
     String until = endOfMonth.toIso8601String();
 
+    await dotenv.load();
+    String? token = dotenv.get('GITHUB_TOKEN');
+
     final String url =
-        "https://api.github.com/repos/${widget.username}/$repository/commits?since=$since&until=$until&per_page=100";
+        'https://api.github.com/repos/${widget.username}/$repository/commits?since=$since&until=$until&per_page=100';
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(Uri.parse(url), headers: {
+        'Authorization': 'token $token',
+      });
 
       if (response.statusCode == 200) {
         List<dynamic> commits = json.decode(response.body);
@@ -97,14 +90,15 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
 
         for (var commit in commits) {
           DateTime date =
-              DateTime.parse(commit["commit"]["author"]["date"]).toUtc();
+              DateTime.parse(commit['commit']['author']['date']).toUtc();
           DateTime dateKey = DateTime.utc(date.year, date.month, date.day);
 
-          String commitMessage = commit["commit"]["message"];
-          String htmlUrl = commit["html_url"];
+          String commitMessage = commit['commit']['message'];
+          String htmlUrl = commit['html_url'];
 
           newCommitData[dateKey] = (newCommitData[dateKey] ?? [])
-            ..add(CommitInfo(message: commitMessage, htmlUrl: htmlUrl));
+            ..add(CommitInfo(
+                message: commitMessage, htmlUrl: htmlUrl, date: date));
         }
 
         setState(() {
@@ -118,7 +112,7 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
     } catch (e) {
       setState(() => isLoading = false);
 
-      showErrorDialog("Error fetching commits: $e");
+      showErrorDialog('Error fetching commits: $e');
     }
   }
 
@@ -126,11 +120,11 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
     showDialog(
         context: context,
         builder: (context) => AlertDialog(
-              title: const Text("Error"),
+              title: const Text('Error'),
               content: Text(message),
               actions: <Widget>[
                 TextButton(
-                  child: const Text("OK"),
+                  child: const Text('OK'),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -150,12 +144,19 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          "Commit Heatmap",
+          'Commit Heatmap',
           style: TextStyle(
             fontSize: 23,
           ),
         ),
         backgroundColor: Colors.green,
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.calendar_today),
+            onPressed: () => showCommitStatsForPeriod(
+                context, widget.username, selectedRepository),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -195,6 +196,7 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
                       setState(() {
                         selectedRepository = newValue;
                       });
+
                       fetchCommitsForMonth(focusedDay);
                     },
                   ),
@@ -211,6 +213,7 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
                 eventLoader: (day) => commitData[day] ?? [],
                 onPageChanged: (focusedDay) {
                   this.focusedDay = focusedDay;
+
                   fetchCommitsForMonth(focusedDay);
                 },
                 availableCalendarFormats: const {
@@ -280,5 +283,84 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
         ),
       ),
     );
+  }
+
+  Future<void> showCommitStatsForPeriod(
+      BuildContext context, String username, String? selectedRepository) async {
+    if (selectedRepository == null) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Error'),
+            content: const Text('No repository selected.'),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        );
+      }
+
+      return;
+    }
+
+    final DateTimeRange? pickedRange = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+
+    if (pickedRange != null && mounted) {
+      try {
+        List<CommitInfo> allCommits = await fetchAllCommits(
+          username,
+          selectedRepository,
+        );
+
+        List<CommitInfo> commitsInRange = allCommits.where((commit) {
+          return commit.date.isAfter(pickedRange.start) &&
+              commit.date.isBefore(pickedRange.end);
+        }).toList();
+
+        int commitCount = commitsInRange.length;
+
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Commit Statistics'),
+              content: Text(
+                'You have made $commitCount commits from ${DateFormat('yyyy-MM-dd').format(pickedRange.start)} to ${DateFormat('yyyy-MM-dd').format(pickedRange.end)}.',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('OK'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Error'),
+              content: const Text('Failed to load commits.'),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('OK'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    }
   }
 }

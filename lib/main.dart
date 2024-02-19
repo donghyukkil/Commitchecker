@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import "package:commitchecker/screens/inputpage.dart";
+
+import 'package:commitchecker/screens/inputpage.dart';
 
 void main() {
   runApp(const MyApp());
@@ -21,7 +22,7 @@ class MyApp extends StatelessWidget {
           appBar: AppBar(
             backgroundColor: Colors.green,
             title: const Text(
-              "Commit Checker",
+              'Commit Checker',
               style: TextStyle(
                 fontSize: 23,
               ),
