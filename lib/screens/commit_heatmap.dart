@@ -156,6 +156,7 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -179,48 +180,52 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
                     style: TextStyle(fontSize: 16),
                   ),
                 ),
-                const SizedBox(width: 60),
-                DropdownButton<String>(
-                  value: selectedRepository,
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      selectedRepository = newValue;
-                    });
-                    fetchCommitsForMonth(focusedDay);
-                  },
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 16,
-                  ),
-                  underline: Container(
-                    height: 2,
-                    color: Colors.green,
-                  ),
-                  icon: const Icon(
-                    Icons.arrow_drop_down,
-                    color: Colors.green,
-                  ),
-                  items: repositories.map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Text(
-                          value,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.black,
+                const SizedBox(width: 50),
+                Expanded(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: selectedRepository,
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        selectedRepository = newValue;
+                      });
+                      fetchCommitsForMonth(focusedDay);
+                    },
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                    ),
+                    underline: Container(
+                      height: 2,
+                      color: Colors.green,
+                    ),
+                    icon: const Icon(
+                      Icons.arrow_drop_down,
+                      color: Colors.green,
+                    ),
+                    items: repositories.map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 8.0, horizontal: 8),
+                          child: Text(
+                            value,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              color: Colors.black,
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  }).toList(),
+                      );
+                    }).toList(),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 10),
             Expanded(
-              flex: 4,
+              flex: 3,
               child: TableCalendar(
                 focusedDay: focusedDay,
                 firstDay: DateTime.utc(2020, 1, 1),
