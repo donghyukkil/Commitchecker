@@ -5,8 +5,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 
-import "package:commitchecker/screens/web_view_page.dart";
 import 'package:commitchecker/models/commit_info.dart';
+import 'package:commitchecker/components/commit_list.dart';
+import 'package:commitchecker/components/repository_dropdown_button.dart.dart';
 
 class CommitHeatmap extends StatefulWidget {
   final String username;
@@ -42,10 +43,12 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
         repositories = repoNames;
         selectedRepository =
             repositories.isNotEmpty ? repositories.first : null;
+
         fetchCommitsForMonth(focusedDay);
       });
     } catch (e) {
       setState(() => isLoading = false);
+
       showErrorDialog("Failed to load repositories: $e");
     }
   }
@@ -81,6 +84,7 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
     DateTime endOfMonth = DateTime(targetDate.year, targetDate.month + 1, 0);
     String since = startOfMonth.toIso8601String();
     String until = endOfMonth.toIso8601String();
+
     final String url =
         "https://api.github.com/repos/${widget.username}/$repository/commits?since=$since&until=$until&per_page=100";
 
@@ -113,6 +117,7 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
       }
     } catch (e) {
       setState(() => isLoading = false);
+
       showErrorDialog("Error fetching commits: $e");
     }
   }
@@ -165,6 +170,7 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
                     setState(() {
                       focusedDay = DateTime.now();
                     });
+
                     fetchCommitsForMonth(focusedDay);
                   },
                   style: ElevatedButton.styleFrom(
@@ -182,43 +188,15 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
                 ),
                 const SizedBox(width: 50),
                 Expanded(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: selectedRepository,
+                  child: RepositoryDropdownButton(
+                    selectedRepository: selectedRepository,
+                    repositories: repositories,
                     onChanged: (String? newValue) {
                       setState(() {
                         selectedRepository = newValue;
                       });
                       fetchCommitsForMonth(focusedDay);
                     },
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                    ),
-                    underline: Container(
-                      height: 2,
-                      color: Colors.green,
-                    ),
-                    icon: const Icon(
-                      Icons.arrow_drop_down,
-                      color: Colors.green,
-                    ),
-                    items: repositories.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 8.0, horizontal: 8),
-                          child: Text(
-                            value,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
                   ),
                 ),
               ],
@@ -293,36 +271,8 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
                 thumbVisibility: true,
                 thickness: 4.0,
                 radius: const Radius.circular(5.0),
-                child: ListView.builder(
-                  itemCount: selectedCommits?.length ?? 0,
-                  itemBuilder: (context, index) {
-                    final commitInfo = selectedCommits![index];
-
-                    return MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: Colors.grey[300]!),
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                        margin: const EdgeInsets.symmetric(vertical: 2),
-                        child: ListTile(
-                          title: Text(commitInfo.message,
-                              style: const TextStyle(fontSize: 13)),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    WebViewPage(url: commitInfo.htmlUrl),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    );
-                  },
+                child: CommitList(
+                  commits: selectedCommits ?? [],
                 ),
               ),
             ),
