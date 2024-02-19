@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 
 import 'package:commitchecker/models/commit_info.dart';
 import 'package:commitchecker/components/commit_list.dart';
-import 'package:commitchecker/components/repository_dropdown_button.dart.dart';
+import 'package:commitchecker/components/repository_dropdown_button.dart';
 
 class CommitHeatmap extends StatefulWidget {
   final String username;
