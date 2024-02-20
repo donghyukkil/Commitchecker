@@ -7,7 +7,6 @@ import 'package:intl/intl.dart';
 
 import 'package:commitchecker/models/commit_info.dart';
 import 'package:commitchecker/components/commit_list.dart';
-import 'package:commitchecker/components/repository_dropdown_button.dart';
 
 import 'package:commitchecker/services/github_api.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -32,8 +31,53 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
   @override
   void initState() {
     super.initState();
-
     fetchRepositories(widget.username);
+  }
+
+  void _showModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SizedBox(
+          height: 400,
+          width: 450,
+          child: Column(
+            children: [
+              const Text(
+                "Select Repository",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+              ),
+              Expanded(
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  thickness: 6.0,
+                  radius: const Radius.circular(5),
+                  child: ListView.builder(
+                    itemCount: repositories.length,
+                    itemBuilder: (context, index) {
+                      return ListTile(
+                        title: Text(
+                          repositories[index],
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w400),
+                        ),
+                        onTap: () {
+                          setState(() {
+                            selectedRepository = repositories[index];
+                            fetchCommitsForMonth(focusedDay);
+                          });
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> fetchRepositories(String username) async {
@@ -45,6 +89,9 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
       setState(() {
         isLoading = false;
         repositories = repoNames;
+
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _showModal(context));
         selectedRepository =
             repositories.isNotEmpty ? repositories.first : null;
 
@@ -146,8 +193,7 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
         title: const Text(
           'Commit Heatmap',
           style: TextStyle(
-            fontSize: 23,
-          ),
+              fontSize: 23, color: Colors.white, fontWeight: FontWeight.w500),
         ),
         backgroundColor: Colors.green,
         actions: <Widget>[
@@ -163,108 +209,67 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
         child: Column(
           children: [
             SizedBox(
-              height: 45,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    height: 50,
-                    width: 50,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          focusedDay = DateTime.now();
-                        });
+              height: 400,
+              child: TableCalendar(
+                headerStyle: const HeaderStyle(
+                  titleCentered: true,
+                ),
+                selectedDayPredicate: (day) {
+                  return isSameDay(selectedDay, day);
+                },
+                focusedDay: focusedDay,
+                firstDay: DateTime.utc(2020, 1, 1),
+                lastDay: DateTime.utc(2025, 12, 31),
+                eventLoader: (day) => commitData[day] ?? [],
+                onPageChanged: (focusedDay) {
+                  this.focusedDay = focusedDay;
 
-                        fetchCommitsForMonth(focusedDay);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        backgroundColor: Colors.green,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(2),
-                          side: const BorderSide(color: Colors.green, width: 2),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 10.0),
-                      ),
-                      child: const Text(
-                        'Today',
-                        style: TextStyle(
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
+                  fetchCommitsForMonth(focusedDay);
+                },
+                onDaySelected: (selectedDay, focusedDay) {
+                  setState(() {
+                    this.selectedDay = selectedDay;
+                    this.focusedDay = focusedDay;
+                    selectedCommits = commitData[selectedDay] ?? [];
+                  });
+                },
+                availableCalendarFormats: const {
+                  CalendarFormat.month: 'Month',
+                },
+                calendarStyle: const CalendarStyle(
+                  selectedDecoration: BoxDecoration(
+                    color: Colors.blue,
+                    shape: BoxShape.circle,
                   ),
-                  Expanded(
-                    child: RepositoryDropdownButton(
-                      selectedRepository: selectedRepository,
-                      repositories: repositories,
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          selectedRepository = newValue;
-                        });
-
-                        fetchCommitsForMonth(focusedDay);
-                      },
-                    ),
+                  todayDecoration: BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
                   ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SizedBox(
-                child: isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(),
-                      )
-                    : TableCalendar(
-                        rowHeight: 47.5,
-                        focusedDay: focusedDay,
-                        firstDay: DateTime.utc(2020, 1, 1),
-                        lastDay: DateTime.utc(2025, 12, 31),
-                        eventLoader: (day) => commitData[day] ?? [],
-                        onPageChanged: (focusedDay) {
-                          this.focusedDay = focusedDay;
-
-                          fetchCommitsForMonth(focusedDay);
-                        },
-                        availableCalendarFormats: const {
-                          CalendarFormat.month: 'Month',
-                        },
-                        calendarBuilders: CalendarBuilders(
-                          markerBuilder: (context, date, events) {
-                            if (events.isNotEmpty) {
-                              return Align(
-                                alignment: Alignment.bottomCenter,
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 2),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: events.length > 5
-                                        ? Colors.red
-                                        : (events.length > 2
-                                            ? Colors.orange
-                                            : Colors.green),
-                                  ),
-                                  width: 8.0,
-                                  height: 8.0,
-                                ),
-                              );
-                            }
-
-                            return null;
-                          },
+                ),
+                calendarBuilders: CalendarBuilders(
+                  markerBuilder: (context, date, events) {
+                    if (events.isNotEmpty) {
+                      return Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: events.length > 5
+                                ? Colors.red
+                                : (events.length > 2
+                                    ? Colors.orange
+                                    : Colors.green),
+                          ),
+                          width: 8.0,
+                          height: 8.0,
                         ),
-                        headerStyle: const HeaderStyle(
-                          titleCentered: true,
-                        ),
-                        onDaySelected: (selectedDay, focusedDay) {
-                          setState(() {
-                            this.selectedDay = selectedDay;
-                            selectedCommits = commitData[selectedDay] ?? [];
-                          });
-                        },
-                      ),
+                      );
+                    }
+
+                    return null;
+                  },
+                ),
               ),
             ),
             if (selectedCommits != null && selectedDay != null)
@@ -275,14 +280,15 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
                   child: Text(
                     formatDate(selectedDay),
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 17,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
+            const SizedBox(height: 10),
             SizedBox(
-              height: 110,
+              height: 300,
               child: Scrollbar(
                 thumbVisibility: true,
                 thickness: 4.0,

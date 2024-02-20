@@ -12,39 +12,44 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'GitHub Commit Heatmap',
-        theme: ThemeData(
-          primarySwatch: Colors.green,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
-        ),
-        home: Scaffold(
-          appBar: AppBar(
-            backgroundColor: Colors.green,
-            title: const Text(
-              'Commit Checker',
-              style: TextStyle(
-                fontSize: 23,
-              ),
-            ),
+      debugShowCheckedModeBanner: false,
+      title: 'GitHub Commit Heatmap',
+      theme: ThemeData(
+        primarySwatch: Colors.green,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
+      home: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.green,
+          title: const Text(
+            'Commit Checker',
+            style: TextStyle(
+                fontSize: 23, color: Colors.white, fontWeight: FontWeight.w500),
           ),
-          body: Column(children: [
-            const SizedBox(height: 40),
-            Image.asset(
-              'assets/images/lawncheck.png',
-              width: 300,
-              height: 200,
-            ),
-            const Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 40),
-                child: SizedBox(
-                  width: 500,
-                  child: InputPage(),
+        ),
+        body: SizedBox(
+          width: MediaQuery.of(context).size.width,
+          height: MediaQuery.of(context).size.height,
+          child: SingleChildScrollView(
+            child: Column(children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 60, horizontal: 100),
+                child: Image.asset(
+                  'assets/images/lawncheck.png',
+                  width: 400,
+                  height: 300,
                 ),
               ),
-            )
-          ]),
-        ));
+              const SizedBox(
+                width: 400,
+                height: 200,
+                child: InputPage(),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:commitchecker/models/commit_info.dart';
 import 'package:commitchecker/screens/web_view_page.dart';
 
@@ -25,7 +26,7 @@ class CommitList extends StatelessWidget {
               commit.message,
               style: const TextStyle(
                 color: Colors.black,
-                fontSize: 12,
+                fontSize: 15,
               ),
             ),
             onTap: () {

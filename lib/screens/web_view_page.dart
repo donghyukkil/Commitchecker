@@ -40,8 +40,7 @@ class _WebViewPageState extends State<WebViewPage> {
           title: const Text(
             'Commit Checker',
             style: TextStyle(
-              fontSize: 23,
-            ),
+                fontSize: 23, color: Colors.white, fontWeight: FontWeight.w500),
           ),
           backgroundColor: Colors.green,
         ),
