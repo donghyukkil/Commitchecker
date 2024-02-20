@@ -24,7 +24,11 @@ class _WebViewPageState extends State<WebViewPage> {
     controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.white)
-      ..loadRequest(Uri.parse(url));
+      ..loadRequest(Uri.parse(url))
+      ..setNavigationDelegate(NavigationDelegate(
+        onPageStarted: (request) => setState(() => isLoading = true),
+        onPageFinished: (request) => setState(() => isLoading = false),
+      ));
   }
 
   @override
@@ -41,10 +45,23 @@ class _WebViewPageState extends State<WebViewPage> {
           ),
           backgroundColor: Colors.green,
         ),
-        body: SizedBox(
-          width: size.width,
-          height: size.height,
-          child: WebViewWidget(controller: controller),
+        body: Stack(
+          children: [
+            Opacity(
+              opacity: isLoading ? 0.0 : 1.0,
+              child: SizedBox(
+                width: size.width,
+                height: size.height,
+                child: WebViewWidget(controller: controller),
+              ),
+            ),
+            Center(
+              child: Visibility(
+                visible: isLoading,
+                child: const CircularProgressIndicator(),
+              ),
+            ),
+          ],
         ));
   }
 }
