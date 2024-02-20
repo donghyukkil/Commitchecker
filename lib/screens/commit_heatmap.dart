@@ -178,7 +178,8 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
                     foregroundColor: Colors.white,
                     backgroundColor: Colors.green,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30.0),
+                      borderRadius: BorderRadius.circular(2),
+                      side: const BorderSide(color: Colors.green, width: 2),
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 15.0),
                   ),
@@ -203,56 +204,60 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 20),
             Expanded(
-              flex: 3,
-              child: TableCalendar(
-                focusedDay: focusedDay,
-                firstDay: DateTime.utc(2020, 1, 1),
-                lastDay: DateTime.utc(2025, 12, 31),
-                eventLoader: (day) => commitData[day] ?? [],
-                onPageChanged: (focusedDay) {
-                  this.focusedDay = focusedDay;
+              flex: 4,
+              child: isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(),
+                    )
+                  : TableCalendar(
+                      focusedDay: focusedDay,
+                      firstDay: DateTime.utc(2020, 1, 1),
+                      lastDay: DateTime.utc(2025, 12, 31),
+                      eventLoader: (day) => commitData[day] ?? [],
+                      onPageChanged: (focusedDay) {
+                        this.focusedDay = focusedDay;
 
-                  fetchCommitsForMonth(focusedDay);
-                },
-                availableCalendarFormats: const {
-                  CalendarFormat.month: 'Month',
-                },
-                calendarBuilders: CalendarBuilders(
-                  markerBuilder: (context, date, events) {
-                    if (events.isNotEmpty) {
-                      return Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 2),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: events.length > 5
-                                ? Colors.red
-                                : (events.length > 2
-                                    ? Colors.orange
-                                    : Colors.green),
-                          ),
-                          width: 8.0,
-                          height: 8.0,
-                        ),
-                      );
-                    }
+                        fetchCommitsForMonth(focusedDay);
+                      },
+                      availableCalendarFormats: const {
+                        CalendarFormat.month: 'Month',
+                      },
+                      calendarBuilders: CalendarBuilders(
+                        markerBuilder: (context, date, events) {
+                          if (events.isNotEmpty) {
+                            return Align(
+                              alignment: Alignment.bottomCenter,
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 2),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: events.length > 5
+                                      ? Colors.red
+                                      : (events.length > 2
+                                          ? Colors.orange
+                                          : Colors.green),
+                                ),
+                                width: 8.0,
+                                height: 8.0,
+                              ),
+                            );
+                          }
 
-                    return null;
-                  },
-                ),
-                headerStyle: const HeaderStyle(
-                  titleCentered: true,
-                ),
-                onDaySelected: (selectedDay, focusedDay) {
-                  setState(() {
-                    this.selectedDay = selectedDay;
-                    selectedCommits = commitData[selectedDay] ?? [];
-                  });
-                },
-              ),
+                          return null;
+                        },
+                      ),
+                      headerStyle: const HeaderStyle(
+                        titleCentered: true,
+                      ),
+                      onDaySelected: (selectedDay, focusedDay) {
+                        setState(() {
+                          this.selectedDay = selectedDay;
+                          selectedCommits = commitData[selectedDay] ?? [];
+                        });
+                      },
+                    ),
             ),
             if (selectedCommits != null && selectedDay != null)
               Padding(
@@ -307,10 +312,32 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
       return;
     }
 
+    setState(() {
+      isLoading = true;
+    });
+
     final DateTimeRange? pickedRange = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
+      builder: (context, child) {
+        final Size screenSize = MediaQuery.of(context).size;
+        const double widthScale = 0.8;
+        const double heightScale = 0.6;
+
+        final double pickerWidth = screenSize.width * widthScale;
+        final double pickerHeight = screenSize.height * heightScale;
+
+        return Center(
+          child: Material(
+            child: SizedBox(
+              width: pickerWidth,
+              height: pickerHeight,
+              child: child,
+            ),
+          ),
+        );
+      },
     );
 
     if (pickedRange != null && mounted) {
@@ -320,20 +347,109 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
           selectedRepository,
         );
 
-        List<CommitInfo> commitsInRange = allCommits.where((commit) {
-          return commit.date.isAfter(pickedRange.start) &&
-              commit.date.isBefore(pickedRange.end);
+        Map<String, int> commitCountsByMonth = {};
+        for (var commit in allCommits) {
+          if (commit.date.isAfter(pickedRange.start) &&
+              commit.date
+                  .isBefore(pickedRange.end.add(const Duration(days: 1)))) {
+            String monthYear = DateFormat('yyyy-MM').format(commit.date);
+            commitCountsByMonth[monthYear] =
+                (commitCountsByMonth[monthYear] ?? 0) + 1;
+          }
+        }
+
+        var sortedKeys = commitCountsByMonth.keys.toList()..sort();
+
+        List<String> reverseSortedKeys = sortedKeys.toList();
+
+        List<TableRow> tableRows = reverseSortedKeys.map((monthYear) {
+          return TableRow(
+            children: [
+              TableCell(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(monthYear),
+                ),
+              ),
+              TableCell(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(commitCountsByMonth[monthYear].toString()),
+                ),
+              ),
+            ],
+          );
         }).toList();
 
-        int commitCount = commitsInRange.length;
+        int totalCommits =
+            commitCountsByMonth.values.fold(0, (sum, count) => sum + count);
+        tableRows.add(
+          TableRow(
+            children: [
+              const TableCell(
+                child: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('Total'),
+                ),
+              ),
+              TableCell(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(totalCommits.toString()),
+                ),
+              ),
+            ],
+          ),
+        );
 
         if (mounted) {
+          setState(() {
+            isLoading = false;
+          });
+
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Commit Statistics'),
-              content: Text(
-                'You have made $commitCount commits from ${DateFormat('yyyy-MM-dd').format(pickedRange.start)} to ${DateFormat('yyyy-MM-dd').format(pickedRange.end)}.',
+              title: RichText(
+                text: TextSpan(
+                  style: const TextStyle(
+                    fontSize: 17.0,
+                    color: Colors.black,
+                  ),
+                  children: <TextSpan>[
+                    const TextSpan(text: 'Commit Statistics for '),
+                    TextSpan(
+                      text: selectedRepository,
+                      style: const TextStyle(
+                          color: Colors.green, fontWeight: FontWeight.bold),
+                    ),
+                    const TextSpan(text: ' repo'),
+                  ],
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Table(
+                  border: TableBorder.all(),
+                  children: [
+                    const TableRow(
+                      children: [
+                        TableCell(
+                          child: Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text('Month'),
+                          ),
+                        ),
+                        TableCell(
+                          child: Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text('Commits'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    ...tableRows,
+                  ],
+                ),
               ),
               actions: <Widget>[
                 TextButton(
