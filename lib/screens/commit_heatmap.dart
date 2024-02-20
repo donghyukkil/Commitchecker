@@ -162,102 +162,110 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      focusedDay = DateTime.now();
-                    });
-
-                    fetchCommitsForMonth(focusedDay);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: Colors.green,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(2),
-                      side: const BorderSide(color: Colors.green, width: 2),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 15.0),
-                  ),
-                  child: const Text(
-                    'Today',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-                const SizedBox(width: 50),
-                Expanded(
-                  child: RepositoryDropdownButton(
-                    selectedRepository: selectedRepository,
-                    repositories: repositories,
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        selectedRepository = newValue;
-                      });
-
-                      fetchCommitsForMonth(focusedDay);
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              flex: 4,
-              child: isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(),
-                    )
-                  : TableCalendar(
-                      focusedDay: focusedDay,
-                      firstDay: DateTime.utc(2020, 1, 1),
-                      lastDay: DateTime.utc(2025, 12, 31),
-                      eventLoader: (day) => commitData[day] ?? [],
-                      onPageChanged: (focusedDay) {
-                        this.focusedDay = focusedDay;
+            SizedBox(
+              height: 45,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    height: 50,
+                    width: 50,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          focusedDay = DateTime.now();
+                        });
 
                         fetchCommitsForMonth(focusedDay);
                       },
-                      availableCalendarFormats: const {
-                        CalendarFormat.month: 'Month',
-                      },
-                      calendarBuilders: CalendarBuilders(
-                        markerBuilder: (context, date, events) {
-                          if (events.isNotEmpty) {
-                            return Align(
-                              alignment: Alignment.bottomCenter,
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 2),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: events.length > 5
-                                      ? Colors.red
-                                      : (events.length > 2
-                                          ? Colors.orange
-                                          : Colors.green),
-                                ),
-                                width: 8.0,
-                                height: 8.0,
-                              ),
-                            );
-                          }
-
-                          return null;
-                        },
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: Colors.green,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(2),
+                          side: const BorderSide(color: Colors.green, width: 2),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10.0),
                       ),
-                      headerStyle: const HeaderStyle(
-                        titleCentered: true,
+                      child: const Text(
+                        'Today',
+                        style: TextStyle(
+                          fontSize: 12,
+                        ),
                       ),
-                      onDaySelected: (selectedDay, focusedDay) {
+                    ),
+                  ),
+                  Expanded(
+                    child: RepositoryDropdownButton(
+                      selectedRepository: selectedRepository,
+                      repositories: repositories,
+                      onChanged: (String? newValue) {
                         setState(() {
-                          this.selectedDay = selectedDay;
-                          selectedCommits = commitData[selectedDay] ?? [];
+                          selectedRepository = newValue;
                         });
+
+                        fetchCommitsForMonth(focusedDay);
                       },
                     ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SizedBox(
+                child: isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(),
+                      )
+                    : TableCalendar(
+                        rowHeight: 47.5,
+                        focusedDay: focusedDay,
+                        firstDay: DateTime.utc(2020, 1, 1),
+                        lastDay: DateTime.utc(2025, 12, 31),
+                        eventLoader: (day) => commitData[day] ?? [],
+                        onPageChanged: (focusedDay) {
+                          this.focusedDay = focusedDay;
+
+                          fetchCommitsForMonth(focusedDay);
+                        },
+                        availableCalendarFormats: const {
+                          CalendarFormat.month: 'Month',
+                        },
+                        calendarBuilders: CalendarBuilders(
+                          markerBuilder: (context, date, events) {
+                            if (events.isNotEmpty) {
+                              return Align(
+                                alignment: Alignment.bottomCenter,
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 2),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: events.length > 5
+                                        ? Colors.red
+                                        : (events.length > 2
+                                            ? Colors.orange
+                                            : Colors.green),
+                                  ),
+                                  width: 8.0,
+                                  height: 8.0,
+                                ),
+                              );
+                            }
+
+                            return null;
+                          },
+                        ),
+                        headerStyle: const HeaderStyle(
+                          titleCentered: true,
+                        ),
+                        onDaySelected: (selectedDay, focusedDay) {
+                          setState(() {
+                            this.selectedDay = selectedDay;
+                            selectedCommits = commitData[selectedDay] ?? [];
+                          });
+                        },
+                      ),
+              ),
             ),
             if (selectedCommits != null && selectedDay != null)
               Padding(
@@ -267,14 +275,14 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
                   child: Text(
                     formatDate(selectedDay),
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
-            Expanded(
-              flex: 2,
+            SizedBox(
+              height: 110,
               child: Scrollbar(
                 thumbVisibility: true,
                 thickness: 4.0,

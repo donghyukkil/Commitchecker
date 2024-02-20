@@ -20,13 +20,12 @@ class CommitList extends StatelessWidget {
             border: Border.all(color: Colors.grey[300]!),
             borderRadius: BorderRadius.circular(5),
           ),
-          margin: const EdgeInsets.symmetric(vertical: 2),
           child: ListTile(
             title: Text(
               commit.message,
               style: const TextStyle(
                 color: Colors.black,
-                fontSize: 16,
+                fontSize: 12,
               ),
             ),
             onTap: () {

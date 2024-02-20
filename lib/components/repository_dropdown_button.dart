@@ -19,6 +19,7 @@ class RepositoryDropdownButton extends StatefulWidget {
 
 class _RepositoryDropdownButtonState extends State<RepositoryDropdownButton> {
   late String? currentItem;
+  late ScrollController _scrollController;
 
   @override
   void initState() {
@@ -26,6 +27,14 @@ class _RepositoryDropdownButtonState extends State<RepositoryDropdownButton> {
 
     currentItem = widget.selectedRepository ??
         (widget.repositories.isNotEmpty ? widget.repositories.first : null);
+
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -39,15 +48,32 @@ class _RepositoryDropdownButtonState extends State<RepositoryDropdownButton> {
         widget.onChanged(value);
       },
       itemBuilder: (BuildContext context) {
-        return widget.repositories.map((String choice) {
-          return PopupMenuItem<String>(
-            value: choice,
-            child: Text(
-              choice,
-              overflow: TextOverflow.ellipsis,
+        return <PopupMenuEntry<String>>[
+          PopupMenuItem<String>(
+            child: ConstrainedBox(
+              constraints:
+                  const BoxConstraints(maxHeight: 200.0, maxWidth: 200),
+              child: Scrollbar(
+                controller: _scrollController,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  child: Column(
+                    children: widget.repositories.map((String choice) {
+                      return PopupMenuItem<String>(
+                        value: choice,
+                        child: Text(
+                          choice,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
             ),
-          );
-        }).toList();
+          ),
+        ];
       },
       offset: const Offset(0, 40),
       child: Container(
