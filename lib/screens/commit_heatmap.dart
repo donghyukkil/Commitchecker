@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
 import 'package:table_calendar/table_calendar.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 
 import 'package:commitchecker/models/commit_info.dart';
 import 'package:commitchecker/components/commit_list.dart';
-
 import 'package:commitchecker/services/github_api.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class CommitHeatmap extends StatefulWidget {
   final String username;
@@ -23,15 +23,115 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
   Map<DateTime, List<CommitInfo>> commitData = {};
   DateTime focusedDay = DateTime.now();
   DateTime? selectedDay;
+  DateTime? _rangeStart;
+  DateTime? _rangeEnd;
   List<CommitInfo>? selectedCommits;
   bool isLoading = false;
   List<String> repositories = [];
   String? selectedRepository;
+  bool isRangeSelectionModeEnabled = false;
 
   @override
   void initState() {
     super.initState();
     fetchRepositories(widget.username);
+  }
+
+  void toggleRangeSelectionMode() {
+    setState(() {
+      isRangeSelectionModeEnabled = !isRangeSelectionModeEnabled;
+    });
+  }
+
+  void onDaySelected(DateTime selectedDay, DateTime focusedDay) {
+    if (_rangeStart == null || _rangeEnd != null) {
+      setState(() {
+        _rangeStart = selectedDay;
+        _rangeEnd = null;
+        this.focusedDay = focusedDay;
+
+        selectedCommits = commitData[selectedDay] ?? [];
+      });
+    } else if (selectedDay.isBefore(_rangeStart!)) {
+      setState(() {
+        _rangeStart = selectedDay;
+        _rangeEnd = null;
+        this.focusedDay = focusedDay;
+
+        selectedCommits = commitData[selectedDay] ?? [];
+      });
+    } else if (_rangeStart != null && selectedDay.isAfter(_rangeStart!)) {
+      setState(() {
+        _rangeEnd = selectedDay;
+        this.focusedDay = focusedDay;
+      });
+
+      showCommitStatsForPeriod(context, widget.username, selectedRepository);
+    }
+  }
+
+  void fetchCommitsForMonth(DateTime targetDate) async {
+    setState(() => isLoading = true);
+
+    String? repository = selectedRepository;
+
+    if (repository == null) {
+      setState(() => isLoading = false);
+
+      return;
+    }
+
+    DateTime startOfMonth = DateTime(targetDate.year, targetDate.month, 1);
+    DateTime endOfMonth = DateTime(targetDate.year, targetDate.month + 1, 0);
+    String since = startOfMonth.toIso8601String();
+    String until = endOfMonth.toIso8601String();
+
+    await dotenv.load();
+    String? token = dotenv.get('GITHUB_TOKEN');
+
+    final String url =
+        'https://api.github.com/repos/${widget.username}/$repository/commits?since=$since&until=$until&per_page=100';
+
+    try {
+      final response = await http.get(Uri.parse(url), headers: {
+        'Authorization': 'token $token',
+      });
+
+      if (response.statusCode == 200) {
+        List<dynamic> commits = json.decode(response.body);
+        Map<DateTime, List<CommitInfo>> newCommitData = {};
+
+        for (var commit in commits) {
+          DateTime date =
+              DateTime.parse(commit['commit']['author']['date']).toUtc();
+          DateTime dateKey = DateTime.utc(date.year, date.month, date.day);
+
+          String commitMessage = commit['commit']['message'];
+          String htmlUrl = commit['html_url'];
+
+          newCommitData[dateKey] = (newCommitData[dateKey] ?? [])
+            ..add(CommitInfo(
+                message: commitMessage, htmlUrl: htmlUrl, date: date));
+        }
+
+        setState(() {
+          commitData = newCommitData;
+
+          if (selectedDay != null && commitData.containsKey(selectedDay)) {
+            selectedCommits = commitData[selectedDay];
+          }
+
+          isLoading = false;
+        });
+      } else {
+        throw Exception(
+            'Failed to load commits with status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      setState(() => isLoading = false);
+
+      showErrorDialog('Error fetching commits: $e');
+    }
   }
 
   void _showModal(BuildContext context) {
@@ -104,65 +204,6 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
     }
   }
 
-  void fetchCommitsForMonth(DateTime targetDate) async {
-    setState(() => isLoading = true);
-
-    String? repository = selectedRepository;
-
-    if (repository == null) {
-      setState(() => isLoading = false);
-
-      return;
-    }
-
-    DateTime startOfMonth = DateTime(targetDate.year, targetDate.month, 1);
-    DateTime endOfMonth = DateTime(targetDate.year, targetDate.month + 1, 0);
-    String since = startOfMonth.toIso8601String();
-    String until = endOfMonth.toIso8601String();
-
-    await dotenv.load();
-    String? token = dotenv.get('GITHUB_TOKEN');
-
-    final String url =
-        'https://api.github.com/repos/${widget.username}/$repository/commits?since=$since&until=$until&per_page=100';
-
-    try {
-      final response = await http.get(Uri.parse(url), headers: {
-        'Authorization': 'token $token',
-      });
-
-      if (response.statusCode == 200) {
-        List<dynamic> commits = json.decode(response.body);
-        Map<DateTime, List<CommitInfo>> newCommitData = {};
-
-        for (var commit in commits) {
-          DateTime date =
-              DateTime.parse(commit['commit']['author']['date']).toUtc();
-          DateTime dateKey = DateTime.utc(date.year, date.month, date.day);
-
-          String commitMessage = commit['commit']['message'];
-          String htmlUrl = commit['html_url'];
-
-          newCommitData[dateKey] = (newCommitData[dateKey] ?? [])
-            ..add(CommitInfo(
-                message: commitMessage, htmlUrl: htmlUrl, date: date));
-        }
-
-        setState(() {
-          commitData = newCommitData;
-          isLoading = false;
-        });
-      } else {
-        throw Exception(
-            'Failed to load commits with status code: ${response.statusCode}');
-      }
-    } catch (e) {
-      setState(() => isLoading = false);
-
-      showErrorDialog('Error fetching commits: $e');
-    }
-  }
-
   void showErrorDialog(String message) {
     showDialog(
         context: context,
@@ -196,13 +237,6 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
               fontSize: 23, color: Colors.white, fontWeight: FontWeight.w500),
         ),
         backgroundColor: Colors.green,
-        actions: <Widget>[
-          IconButton(
-            icon: const Icon(Icons.calendar_today),
-            onPressed: () => showCommitStatsForPeriod(
-                context, widget.username, selectedRepository),
-          ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -226,13 +260,9 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
 
                   fetchCommitsForMonth(focusedDay);
                 },
-                onDaySelected: (selectedDay, focusedDay) {
-                  setState(() {
-                    this.selectedDay = selectedDay;
-                    this.focusedDay = focusedDay;
-                    selectedCommits = commitData[selectedDay] ?? [];
-                  });
-                },
+                onDaySelected: onDaySelected,
+                rangeStartDay: _rangeStart,
+                rangeEndDay: _rangeEnd,
                 availableCalendarFormats: const {
                   CalendarFormat.month: 'Month',
                 },
@@ -306,13 +336,17 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
 
   Future<void> showCommitStatsForPeriod(
       BuildContext context, String username, String? selectedRepository) async {
-    if (selectedRepository == null) {
+    if (selectedRepository == null ||
+        _rangeStart == null ||
+        _rangeEnd == null) {
       if (mounted) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Error'),
-            content: const Text('No repository selected.'),
+            content: Text(selectedRepository == null
+                ? 'No repository selected'
+                : 'No date range selected'),
             actions: <Widget>[
               TextButton(
                 child: const Text('OK'),
@@ -322,175 +356,150 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
           ),
         );
       }
-
       return;
     }
 
-    setState(() {
-      isLoading = true;
-    });
-
-    final DateTimeRange? pickedRange = await showDateRangePicker(
+    showDialog(
       context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        final Size screenSize = MediaQuery.of(context).size;
-        const double widthScale = 0.8;
-        const double heightScale = 0.6;
-
-        final double pickerWidth = screenSize.width * widthScale;
-        final double pickerHeight = screenSize.height * heightScale;
-
-        return Center(
-          child: Material(
-            child: SizedBox(
-              width: pickerWidth,
-              height: pickerHeight,
-              child: child,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 235,
+                ),
+                Text(
+                  "Calculating commit statistics...",
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                ),
+              ],
             ),
           ),
         );
       },
     );
 
-    if (pickedRange != null && mounted) {
-      try {
-        List<CommitInfo> allCommits = await fetchAllCommits(
-          username,
-          selectedRepository,
-        );
+    try {
+      List<CommitInfo> allCommits =
+          await fetchAllCommits(username, selectedRepository);
 
-        Map<String, int> commitCountsByMonth = {};
-        for (var commit in allCommits) {
-          if (commit.date.isAfter(pickedRange.start) &&
-              commit.date
-                  .isBefore(pickedRange.end.add(const Duration(days: 1)))) {
-            String monthYear = DateFormat('yyyy-MM').format(commit.date);
-            commitCountsByMonth[monthYear] =
-                (commitCountsByMonth[monthYear] ?? 0) + 1;
-          }
-        }
+      Map<String, int> commitCountsByMonth = {};
 
-        var sortedKeys = commitCountsByMonth.keys.toList()..sort();
-
-        List<String> reverseSortedKeys = sortedKeys.toList();
-
-        List<TableRow> tableRows = reverseSortedKeys.map((monthYear) {
-          return TableRow(
-            children: [
-              TableCell(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(monthYear),
-                ),
-              ),
-              TableCell(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(commitCountsByMonth[monthYear].toString()),
-                ),
-              ),
-            ],
-          );
-        }).toList();
-
-        int totalCommits =
-            commitCountsByMonth.values.fold(0, (sum, count) => sum + count);
-        tableRows.add(
-          TableRow(
-            children: [
-              const TableCell(
-                child: Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('Total'),
-                ),
-              ),
-              TableCell(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(totalCommits.toString()),
-                ),
-              ),
-            ],
-          ),
-        );
-
-        if (mounted) {
-          setState(() {
-            isLoading = false;
-          });
-
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: RichText(
-                text: TextSpan(
-                  style: const TextStyle(
-                    fontSize: 17.0,
-                    color: Colors.black,
-                  ),
-                  children: <TextSpan>[
-                    const TextSpan(text: 'Commit Statistics for '),
-                    TextSpan(
-                      text: selectedRepository,
-                      style: const TextStyle(
-                          color: Colors.green, fontWeight: FontWeight.bold),
-                    ),
-                    const TextSpan(text: ' repo'),
-                  ],
-                ),
-              ),
-              content: SingleChildScrollView(
-                child: Table(
-                  border: TableBorder.all(),
-                  children: [
-                    const TableRow(
-                      children: [
-                        TableCell(
-                          child: Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: Text('Month'),
-                          ),
-                        ),
-                        TableCell(
-                          child: Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: Text('Commits'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    ...tableRows,
-                  ],
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('OK'),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Error'),
-              content: const Text('Failed to load commits.'),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('OK'),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-          );
+      for (var commit in allCommits) {
+        if (commit.date.isAfter(_rangeStart!) &&
+            commit.date.isBefore(_rangeEnd!.add(const Duration(days: 1)))) {
+          String monthYear = DateFormat('yyyy-MM').format(commit.date);
+          commitCountsByMonth[monthYear] =
+              (commitCountsByMonth[monthYear] ?? 0) + 1;
         }
       }
+
+      var sortedKeys = commitCountsByMonth.keys.toList()..sort();
+      List<TableRow> tableRows = sortedKeys.map((monthYear) {
+        return TableRow(
+          children: [
+            TableCell(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(monthYear),
+              ),
+            ),
+            TableCell(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(commitCountsByMonth[monthYear].toString()),
+              ),
+            ),
+          ],
+        );
+      }).toList();
+
+      int totalCommits =
+          commitCountsByMonth.values.fold(0, (sum, count) => sum + count);
+
+      tableRows.add(
+        TableRow(
+          children: [
+            const TableCell(
+              child: Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text('Total'),
+              ),
+            ),
+            TableCell(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(totalCommits.toString()),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+                  title: const Text('Commit Statistic'),
+                  content: SingleChildScrollView(
+                    child: Table(
+                      border: TableBorder.all(),
+                      children: [
+                        const TableRow(
+                          children: [
+                            TableCell(
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text('Month'),
+                              ),
+                            ),
+                            TableCell(
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text('Commits'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        ...tableRows,
+                      ],
+                    ),
+                  ),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ));
+      }
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+                  title: const Text('Error'),
+                  content: Text('Failed to load commits: $e'),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text(
+                        'OK',
+                      ),
+                    ),
+                  ],
+                ));
+      }
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 }

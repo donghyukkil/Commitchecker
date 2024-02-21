@@ -64,43 +64,6 @@ Future<List<String>> fetchRepositoriesFromAPI(String username) async {
   }
 }
 
-Future<Map<DateTime, List<CommitInfo>>> fetchCommitsForMonth(String username,
-    String repository, DateTime startOfMonth, DateTime endOfMonth) async {
-  String since = startOfMonth.toIso8601String();
-  String until = endOfMonth.toIso8601String();
-
-  await dotenv.load();
-  String? token = dotenv.get('GITHUB_TOKEN');
-
-  final String url =
-      'https://api.github.com/repos/$username/$repository/commits?since=$since&until=$until&per_page=100';
-  final response = await http.get(Uri.parse(url), headers: {
-    'Authorization': 'token $token',
-  });
-
-  if (response.statusCode == 200) {
-    List<dynamic> commits = json.decode(response.body);
-    Map<DateTime, List<CommitInfo>> newCommitData = {};
-
-    for (var commit in commits) {
-      DateTime date =
-          DateTime.parse(commit['commit']['author']['date']).toUtc();
-      DateTime dateKey = DateTime.utc(date.year, date.month, date.day);
-
-      String commitMessage = commit['commit']['message'];
-      String htmlUrl = commit['html_url'];
-
-      newCommitData[dateKey] = (newCommitData[dateKey] ?? [])
-        ..add(CommitInfo(message: commitMessage, htmlUrl: htmlUrl, date: date));
-    }
-
-    return newCommitData;
-  } else {
-    throw Exception(
-        'Failed to load commits with status code: ${response.statusCode}');
-  }
-}
-
 Future<Map<DateTime, List<CommitInfo>>> fetchCommitsForRange(
     String username, String repository, DateTime start, DateTime end) async {
   String since = start.toIso8601String();

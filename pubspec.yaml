@@ -84,7 +84,7 @@ flutter:
 
   assets:
     - assets/images/lawncheck.png
-
+    - assets/preview.gif
     - .env
 
 
