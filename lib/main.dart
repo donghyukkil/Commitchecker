@@ -51,7 +51,7 @@ class _HomePageState extends State<HomePage> {
                 children: <Widget>[
                   const Text(
                     "Welcome to Commit Checker!",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
