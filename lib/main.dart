@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:commitchecker/screens/inputpage.dart';
 
 void main() {
@@ -75,9 +76,13 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       },
-    ).then((value) => setState(() {
+    ).then(
+      (value) => setState(
+        () {
           _isGifShown = true;
-        }));
+        },
+      ),
+    );
   }
 
   @override

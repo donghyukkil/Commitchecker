@@ -12,6 +12,12 @@ class InputPage extends StatefulWidget {
 class _InputPageState extends State<InputPage> {
   final TextEditingController _usernameController = TextEditingController();
 
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    super.dispose();
+  }
+
   void _navigateToCommitHeatmap() {
     if (_usernameController.text.isNotEmpty) {
       Navigator.push(

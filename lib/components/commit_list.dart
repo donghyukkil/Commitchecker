@@ -65,10 +65,11 @@ class CommitList extends StatelessWidget {
               ),
               onTap: () {
                 Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) =>
-                            WebViewPage(url: commit.htmlUrl)));
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => WebViewPage(url: commit.htmlUrl),
+                  ),
+                );
               },
             ),
           );

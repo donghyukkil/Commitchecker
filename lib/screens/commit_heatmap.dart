@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 
 import 'package:commitchecker/models/commit_info.dart';
 import 'package:commitchecker/components/commit_list.dart';
@@ -20,18 +21,15 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
   DateTime? selectedDay;
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
-
   Map<DateTime, List<CommitInfo>> commitData = {};
   List<CommitInfo>? selectedCommits;
   List<String> repositories = [];
-
   bool isLoading = false;
-
   String? selectedRepository;
   String? mostActiveDay;
   String? mostActiveTime;
-
   late ScrollController controller;
+  final httpClient = http.Client();
 
   @override
   void initState() {
@@ -40,53 +38,56 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
     fetchRepositories(widget.username);
   }
 
-  void onDaySelected(DateTime selectedDay, DateTime focusedDay) {
-    if (_rangeStart == null || _rangeEnd != null) {
-      setState(() {
-        this.selectedDay = selectedDay;
-        _rangeStart = selectedDay;
-        _rangeEnd = null;
+  @override
+  void dispose() {
+    controller.dispose();
+    httpClient.close();
+    super.dispose();
+  }
 
-        selectedCommits = commitData[selectedDay] ?? [];
-      });
-    } else if (selectedDay.isBefore(_rangeStart!)) {
-      setState(() {
-        this.selectedDay = selectedDay;
-        _rangeStart = selectedDay;
-        _rangeEnd = null;
+  Future<void> fetchRepositories(String username) async {
+    try {
+      List<String> repoNames = await fetchRepositoriesFromAPI(
+        username,
+        client: httpClient,
+      );
 
-        selectedCommits = commitData[selectedDay] ?? [];
-      });
-    } else if (_rangeStart != null && selectedDay.isAfter(_rangeStart!)) {
       setState(() {
-        _rangeEnd = selectedDay;
+        repositories = repoNames;
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _showModal(context));
+        selectedRepository =
+            repositories.isNotEmpty ? repositories.first : null;
+        fetchCommitsForMonth(focusedDay);
       });
-
-      showCommitStatsForPeriod(context, widget.username, selectedRepository);
+    } catch (e) {
+      showErrorDialog(
+        'Failed to load repositories. \nPlease enter the correct user',
+      );
     }
   }
 
   void fetchCommitsForMonth(DateTime targetDate) async {
-    setState(() => isLoading = true);
-
     String? repository = selectedRepository;
 
     if (repository == null) {
-      setState(() => isLoading = false);
-
       return;
     }
 
     DateTime startOfMonth = DateTime(targetDate.year, targetDate.month, 1);
-    DateTime endOfMonth = DateTime(targetDate.year, targetDate.month + 1, 0)
+    DateTime endOfMonth = DateTime(targetDate.year, targetDate.month + 1, 1)
         .subtract(const Duration(days: 1));
 
     try {
       Map<DateTime, List<CommitInfo>> newCommitData = {};
 
       List<CommitInfo> commits = await fetchAllCommits(
-          widget.username, repository,
-          startOfMonth: startOfMonth, endOfMonth: endOfMonth);
+        widget.username,
+        repository,
+        startOfMonth: startOfMonth,
+        endOfMonth: endOfMonth,
+        client: httpClient,
+      );
 
       for (var commit in commits) {
         DateTime dateKey =
@@ -102,32 +103,9 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
       setState(() {
         commitData = newCommitData;
         selectedCommits = commitData[selectedDay] ?? [];
-        isLoading = false;
       });
     } catch (e) {
-      setState(() => isLoading = false);
       showErrorDialog('Error fetching commits: $e');
-    }
-  }
-
-  Future<void> fetchRepositories(String username) async {
-    try {
-      setState(() => isLoading = true);
-
-      List<String> repoNames = await fetchRepositoriesFromAPI(username);
-
-      setState(() {
-        isLoading = false;
-        repositories = repoNames;
-        WidgetsBinding.instance
-            .addPostFrameCallback((_) => _showModal(context));
-        selectedRepository =
-            repositories.isNotEmpty ? repositories.first : null;
-        fetchCommitsForMonth(focusedDay);
-      });
-    } catch (e) {
-      setState(() => isLoading = false);
-      showErrorDialog('Failed to load repositories: $e');
     }
   }
 
@@ -135,11 +113,52 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
     if (date == null) {
       return 'No Date Selected';
     }
+
     return DateFormat('yyyy-MM-dd EEEE').format(date);
+  }
+
+  void onDaySelected(DateTime selectedDay, DateTime focusedDay) {
+    if (_rangeStart == null || _rangeEnd != null) {
+      setState(() {
+        this.selectedDay = selectedDay;
+        _rangeStart = selectedDay;
+
+        selectedCommits = commitData[selectedDay] ?? [];
+      });
+    } else if (selectedDay.isBefore(_rangeStart!)) {
+      setState(() {
+        this.selectedDay = selectedDay;
+        _rangeStart = selectedDay;
+
+        selectedCommits = commitData[selectedDay] ?? [];
+      });
+    } else if (_rangeStart != null && selectedDay.isAfter(_rangeStart!)) {
+      setState(() {
+        _rangeEnd = selectedDay;
+      });
+
+      showCommitStatsForPeriod(
+        context,
+        widget.username,
+        selectedRepository,
+      );
+    }
   }
 
   Future<void> showCommitStatsForPeriod(
       BuildContext context, String username, String? selectedRepository) async {
+    if (repositories.isEmpty) {
+      _rangeStart = null;
+      _rangeEnd = null;
+      selectedDay = null;
+
+      showErrorDialog(
+        'No repositories found. \nPlease enter the correct user.',
+      );
+
+      return;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -166,8 +185,9 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
     );
 
     try {
-      List<CommitInfo> allCommits =
-          await fetchAllCommits(username, selectedRepository!);
+      List<CommitInfo> allCommits = await fetchAllCommits(
+          username, selectedRepository!,
+          client: httpClient);
 
       List<CommitInfo> filteredCommits = allCommits.where((commit) {
         return commit.date.isAfter(_rangeStart!) &&
@@ -289,7 +309,9 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
             context: context,
             builder: (context) => AlertDialog(
                   title: const Text('Error'),
-                  content: Text('Failed to load commits: $e'),
+                  content: const Text(
+                    'Failed to load commits',
+                  ),
                   actions: <Widget>[
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
@@ -300,133 +322,7 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
                   ],
                 ));
       }
-    } finally {
-      setState(() {
-        isLoading = false;
-        mostActiveDay = mostActiveDay;
-        mostActiveTime = mostActiveTime;
-      });
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Commit Heatmap',
-          style: TextStyle(
-              fontSize: 23, color: Colors.white, fontWeight: FontWeight.w500),
-        ),
-        backgroundColor: Colors.green,
-        actions: [
-          IconButton(
-            onPressed: () {
-              _showModal(context);
-            },
-            icon: const Icon(Icons.folder_open),
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            SizedBox(
-              height: 400,
-              child: TableCalendar(
-                headerStyle: const HeaderStyle(
-                  titleCentered: true,
-                ),
-                selectedDayPredicate: (day) {
-                  return isSameDay(selectedDay, day);
-                },
-                focusedDay: focusedDay,
-                firstDay: DateTime.utc(2020, 1, 1),
-                lastDay: DateTime.utc(2025, 12, 31),
-                eventLoader: (day) => commitData[day] ?? [],
-                onPageChanged: (focusedDay) {
-                  this.focusedDay = focusedDay;
-                  fetchCommitsForMonth(focusedDay);
-                },
-                onDaySelected: onDaySelected,
-                rangeStartDay: _rangeStart,
-                rangeEndDay: _rangeEnd,
-                availableCalendarFormats: const {
-                  CalendarFormat.month: 'Month',
-                },
-                calendarStyle: const CalendarStyle(
-                  selectedDecoration: BoxDecoration(
-                    color: Colors.purple,
-                    shape: BoxShape.circle,
-                  ),
-                  todayDecoration: BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                calendarBuilders: CalendarBuilders(
-                  markerBuilder: (context, date, events) {
-                    if (events.isNotEmpty) {
-                      return Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 2),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: events.length > 5
-                                ? Colors.red
-                                : (events.length > 2
-                                    ? Colors.orange
-                                    : Colors.green),
-                          ),
-                          width: 9.0,
-                          height: 9.0,
-                        ),
-                      );
-                    }
-                    return null;
-                  },
-                ),
-              ),
-            ),
-            if (_rangeStart != null)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        formatDate(_rangeStart),
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'Commits: ${commitData[_rangeStart]?.length ?? 0}',
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 300,
-              child: CommitList(
-                commits: selectedDay == null ? null : selectedCommits,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   String calculateMostActiveDay(List<CommitInfo> commits) {
@@ -564,6 +460,130 @@ class _CommitHeatmapState extends State<CommitHeatmap> {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Commit Heatmap',
+          style: TextStyle(
+            fontSize: 23,
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        backgroundColor: Colors.green,
+        actions: [
+          IconButton(
+            onPressed: () {
+              _showModal(context);
+            },
+            icon: const Icon(Icons.folder_open),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            SizedBox(
+              height: 400,
+              child: TableCalendar(
+                headerStyle: const HeaderStyle(
+                  titleCentered: true,
+                ),
+                selectedDayPredicate: (day) {
+                  return isSameDay(selectedDay, day);
+                },
+                focusedDay: focusedDay,
+                firstDay: DateTime.utc(2020, 1, 1),
+                lastDay: DateTime.utc(2025, 12, 31),
+                eventLoader: (day) => commitData[day] ?? [],
+                onPageChanged: (focusedDay) {
+                  this.focusedDay = focusedDay;
+                  fetchCommitsForMonth(focusedDay);
+                },
+                onDaySelected: onDaySelected,
+                rangeStartDay: _rangeStart,
+                rangeEndDay: _rangeEnd,
+                availableCalendarFormats: const {
+                  CalendarFormat.month: 'Month',
+                },
+                calendarStyle: const CalendarStyle(
+                  selectedDecoration: BoxDecoration(
+                    color: Colors.purple,
+                    shape: BoxShape.circle,
+                  ),
+                  todayDecoration: BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                calendarBuilders: CalendarBuilders(
+                  markerBuilder: (context, date, events) {
+                    if (events.isNotEmpty) {
+                      return Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: events.length > 5
+                                ? Colors.red
+                                : (events.length > 2
+                                    ? Colors.orange
+                                    : Colors.green),
+                          ),
+                          width: 9.0,
+                          height: 9.0,
+                        ),
+                      );
+                    }
+
+                    return null;
+                  },
+                ),
+              ),
+            ),
+            if (_rangeStart != null)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        formatDate(_rangeStart),
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Commits: ${commitData[_rangeStart]?.length ?? 0}',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 300,
+              child: CommitList(
+                commits: selectedDay == null ? null : selectedCommits,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
