@@ -5,7 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:commitchecker/models/commit_info.dart';
 
 Future<List<CommitInfo>> fetchAllCommits(String username, String repository,
-    {DateTime? startOfMonth, DateTime? endOfMonth}) async {
+    {DateTime? startOfMonth, DateTime? endOfMonth, http.Client? client}) async {
   List<CommitInfo> allCommits = [];
   int page = 1;
   bool hasMore = true;
@@ -52,7 +52,8 @@ Future<List<CommitInfo>> fetchAllCommits(String username, String repository,
   return allCommits;
 }
 
-Future<List<String>> fetchRepositoriesFromAPI(String username) async {
+Future<List<String>> fetchRepositoriesFromAPI(String username,
+    {http.Client? client}) async {
   await dotenv.load();
   String? token = dotenv.get('GITHUB_TOKEN');
 
