@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
 
-import 'package:commitchecker/screens/inputpage.dart';
+import 'package:commitchecker/views/inputpage.dart';
+import 'package:commitchecker/repositories/github_api.dart';
+import 'package:commitchecker/viewmodels/commit_heatmap_viewmodel.dart';
 
 void main() {
   runApp(const MyApp());
@@ -11,14 +15,41 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'GitHub Commit Heatmap',
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
+    return ChangeNotifierProvider(
+      create: (_) => CommitHeatmapViewModel(
+        GitHubRepository(
+          httpClient: http.Client(),
+        ),
+        '',
+        onError: (String errorMessage) {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text("Error"),
+                content: Text(errorMessage),
+                actions: [
+                  TextButton(
+                    child: const Text("OK"),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ],
+              );
+            },
+          );
+        },
       ),
-      home: const HomePage(),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'GitHub Commit Heatmap',
+        theme: ThemeData(
+          primarySwatch: Colors.green,
+          visualDensity: VisualDensity.adaptivePlatformDensity,
+        ),
+        home: const HomePage(),
+      ),
     );
   }
 }
@@ -36,7 +67,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showGifModal(context));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _showGifModal(context),
+    );
   }
 
   void _showGifModal(BuildContext context) {
@@ -69,7 +102,7 @@ class _HomePageState extends State<HomePage> {
                       Navigator.of(context).pop();
                     },
                     child: const Text('Start'),
-                  )
+                  ),
                 ],
               ),
             ),
@@ -93,7 +126,10 @@ class _HomePageState extends State<HomePage> {
         title: const Text(
           'Commit Checker',
           style: TextStyle(
-              fontSize: 23, color: Colors.white, fontWeight: FontWeight.w500),
+            fontSize: 23,
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
       body: SingleChildScrollView(
@@ -108,7 +144,9 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(
-                            vertical: 60, horizontal: 100),
+                          vertical: 60,
+                          horizontal: 100,
+                        ),
                         child: Image.asset(
                           'assets/images/lawncheck.png',
                           width: 400,
@@ -123,7 +161,7 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
-              )
+              ),
           ],
         ),
       ),

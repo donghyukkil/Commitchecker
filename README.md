@@ -1,5 +1,5 @@
   <p align="center">
-     <img src="https://github.com/donghyukkil/Commitchecker/assets/124029691/68b51305-0cc2-4445-9e29-c09e3688ce5f" width="350" height="440">
+     <img src="https://github.com/donghyukkil/Commitchecker/assets/124029691/a196ba0d-06fb-48af-a120-e9c580d99ac7" width="400" height="750">
   </p>
 
 # 목차

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:commitchecker/models/commit_info.dart';
-import 'package:commitchecker/screens/web_view_page.dart';
+import 'package:commitchecker/views/web_view_page.dart';
 
 class CommitList extends StatelessWidget {
   final List<CommitInfo>? commits;
@@ -44,6 +44,8 @@ class CommitList extends StatelessWidget {
     }
 
     return Scrollbar(
+      thumbVisibility: true,
+      thickness: 5.0,
       child: ListView.builder(
         itemCount: commits!.length,
         itemBuilder: (context, index) {
@@ -56,18 +58,24 @@ class CommitList extends StatelessWidget {
               borderRadius: BorderRadius.circular(5),
             ),
             child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 1.0,
+                horizontal: 16.0,
+              ),
               title: Text(
                 commit.message,
                 style: const TextStyle(
                   color: Colors.black,
-                  fontSize: 15,
+                  fontSize: 12.5,
                 ),
               ),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => WebViewPage(url: commit.htmlUrl),
+                    builder: (context) => WebViewPage(
+                      url: commit.htmlUrl,
+                    ),
                   ),
                 );
               },
