@@ -13,32 +13,12 @@ class CommitList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (commits == null) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Text(
-              'Select a date',
-              style: TextStyle(fontSize: 18.0),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (commits!.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Text(
-              'No commits',
-              style: TextStyle(fontSize: 18.0),
-            ),
-          ],
+    if (commits == null || commits!.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 20.0),
+        child: Text(
+          commits == null ? 'Select a date' : 'No commits',
+          style: const TextStyle(fontSize: 18.0),
         ),
       );
     }

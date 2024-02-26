@@ -8,7 +8,7 @@ void main() {
     'InputPage Widget Tests',
     () {
       testWidgets(
-        'InputPage builds correctly',
+        'Should build the InputPage correctly',
         (WidgetTester tester) async {
           await tester.pumpWidget(
             MaterialApp(
@@ -18,10 +18,22 @@ void main() {
             ),
           );
 
-          expect(find.byType(TextField), findsOneWidget);
-          expect(find.text('GitHub Username'), findsOneWidget);
-          expect(find.text('Enter your GitHub ID'), findsOneWidget);
-          expect(find.byIcon(Icons.person), findsOneWidget);
+          expect(
+            find.byType(TextField),
+            findsOneWidget,
+          );
+          expect(
+            find.text('GitHub Username'),
+            findsOneWidget,
+          );
+          expect(
+            find.text('Enter your GitHub ID'),
+            findsOneWidget,
+          );
+          expect(
+            find.byIcon(Icons.person),
+            findsOneWidget,
+          );
         },
       );
     },
