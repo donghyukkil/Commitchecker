@@ -1,8 +1,6 @@
-  <p align="center">
-     <img src="https://github.com/donghyukkil/Commitchecker/assets/124029691/a196ba0d-06fb-48af-a120-e9c580d99ac7" width="400" height="750">
-  </p>
-
-<br>
+<p align="center">
+     <img src="./assets/images/lawncheck.png" width="300" height="300">
+</p>
 
 # 목차
 
@@ -18,6 +16,11 @@
 
 # 프로젝트 소개
 - 사용자의 GitHub 커밋 데이터를 시각적으로 표시하며, 선택된 기간 동안의 커밋 통계를 확인할 수 있습니다.
+
+  <p align="center">
+     <img src="https://github.com/donghyukkil/Commitchecker/assets/124029691/a196ba0d-06fb-48af-a120-e9c580d99ac7" width="200" height="350">
+  </p>
+
 
 <br>
 
@@ -155,7 +158,7 @@
 # 기술스택
 
 - Front-end:
-  - Dart, Flutter
+  - Dart, Flutter, Github API, Provider, Mockito
 
 <br>
 
